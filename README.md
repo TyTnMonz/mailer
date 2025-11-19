@@ -1,5 +1,8 @@
 # Mailer - Email Sender with Microsoft Graph API
 
+> **🤖 AI-Generated Project**  
+> This entire project, including all code, documentation, and this GitHub repository, was created automatically using **Google's Antigravity IDE** with the **Claude Sonnet 4.5** AI model as a personal test of the IDE's AI-powered development capabilities.
+
 A .NET Core console application that sends emails using the Microsoft Graph API (Office 365). This application can be used both as a standalone executable and as a library in other .NET projects.
 
 ## Features
@@ -167,6 +170,10 @@ mailer/
 │   └── EmailService.cs        # Reusable email service
 ├── Models/
 │   └── GraphConfig.cs         # Configuration model
+├── docs/                      # AI development artifacts
+│   ├── implementation_plan.md # Initial planning document
+│   ├── task.md                # Task breakdown and progress
+│   └── walkthrough.md         # Project walkthrough
 ├── appsettings.json           # Configuration file (user-created)
 ├── appsettings.example.json   # Configuration template
 └── README.md                  # This file
@@ -250,6 +257,47 @@ This project is licensed under the **Creative Commons Attribution-NonCommercial 
 For commercial use, please contact the author.
 
 See the [LICENSE](LICENSE) file for full details or visit [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
+
+## About This AI-Generated Project
+
+### Development Process
+
+This entire project was created using **Google's Antigravity IDE**, a next-generation development environment powered by advanced AI capabilities. The development process involved:
+
+1. **Natural Language Requirements** - The project was initiated with a simple natural language description of the desired functionality
+2. **AI-Driven Implementation** - The **Claude Sonnet 4.5** AI model automatically generated:
+   - Complete .NET Core project structure
+   - All source code (EmailService, Program.cs, configuration models)
+   - NuGet package management and dependencies
+   - Comprehensive logging with Serilog
+   - Complete documentation (README, LICENSE)
+   - Git repository setup and GitHub integration
+3. **Iterative Refinement** - Through conversational interactions, features were added and refined:
+   - HTML email support (string and file-based)
+   - File attachment handling
+   - Daily rotating log files
+   - Command-line interface
+4. **Testing and Validation** - The AI assisted in testing the application with real Azure AD credentials and email sending
+
+### What Was Tested
+
+This project tested Antigravity IDE's ability to:
+- Generate production-ready, well-structured code
+- Implement complex integrations (Microsoft Graph API, OAuth2)
+- Create comprehensive documentation
+- Handle real-world requirements (logging, error handling, configuration)
+- Manage the entire development lifecycle from concept to GitHub deployment
+
+### Technology Stack
+
+- **IDE**: Google Antigravity
+- **AI Model**: Claude Sonnet 4.5
+- **Framework**: .NET 9.0
+- **APIs**: Microsoft Graph API
+- **Authentication**: Azure Identity (OAuth2)
+- **Logging**: Serilog
+
+All code, documentation, and project structure were generated through AI-assisted development, demonstrating the potential of AI-powered IDEs to accelerate software development while maintaining code quality and best practices.
 
 ## Support
 
