@@ -237,7 +237,19 @@ logs/
 
 ## License
 
-This project is provided as-is for educational and commercial use.
+This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)**.
+
+**You are free to:**
+- Share and redistribute the material
+- Adapt, remix, and build upon the material
+
+**Under the following terms:**
+- **Attribution** — You must give appropriate credit
+- **NonCommercial** — You may not use the material for commercial purposes
+
+For commercial use, please contact the author.
+
+See the [LICENSE](LICENSE) file for full details or visit [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
 
 ## Support
 
