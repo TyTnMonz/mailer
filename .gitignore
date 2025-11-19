@@ -1,0 +1,45 @@
+# Build results
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vs/
+*.vsidx
+*.vspscc
+*.vspx
+*.sap
+
+# Rider
+.idea/
+
+# Logs
+logs/
+*.log
+
+# Configuration files with sensitive data
+appsettings.json
+
+# Test files (optional - remove if you want to include them)
+test-email.html
+test-attachment.txt
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Build log
+msbuild.log
+
+# OS files
+.DS_Store
+Thumbs.db
