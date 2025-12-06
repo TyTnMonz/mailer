@@ -103,79 +103,87 @@ This application uses **SQL Server** to store Microsoft Graph API credentials se
 **Run the setup utility to configure the application:**
 
 ```bash
-dotnet run -- --setup
+Mailer.exe --setup
 ```
 
-The setup utility will prompt you for:
-
-#### Database Connection
-- **Server IP/Hostname** - e.g., `localhost`, `192.168.1.100`
-- **Database Name** - e.g., `MailerDB`, `SaccoGestT`
-- **Table Name** - e.g., `SaccoGest`, `MailerConfig`
-- **Authentication Method** - Windows Authentication or SQL Server login
-- **SQL Credentials** - Username and password (if using SQL Server authentication)
-
-#### Microsoft Graph API Configuration
-- **Azure Tenant ID** - Found in Azure Portal → Azure Active Directory → Overview
+You'll be prompted for:
+- **SQL Server IP/Hostname** - e.g., `localhost`, `192.168.1.100`
+- **Database Name** - e.g., `MailerDB`, `EmailConfig`
+- **Table Name** - e.g., `MailerConfig`, `GraphCredentials`
+- **Authentication Method** - Windows Authentication or SQL Server Authentication
+- **Azure Tenant ID** - Found in your App Registration → Overview
 - **Azure Client ID** - Found in your App Registration → Overview
 - **Azure Client Secret** - Created in App Registration → Certificates & secrets
 - **Sender Email Address** - A valid email in your Office 365 tenant
+- **Default Recipients** (optional) - Default email recipients
 
 The utility will:
 - ✅ Test the database connection
 - ✅ Create the configuration table if it doesn't exist
 - ✅ Store Graph API credentials as key-value pairs in the database
 - ✅ Save database connection details to `db.config.json`
-- ✅ Apply security attributes to the config file (Hidden, System, ReadOnly)
+- ✅ Optionally apply security attributes to the config file (Hidden, System, ReadOnly)
 
 > [!IMPORTANT]
 > **Database Security**: Your Graph API credentials are stored in SQL Server and protected by database authentication. The local `db.config.json` file only contains database connection details.
-
-> [!WARNING]
-> **File Protection**: The `db.config.json` file is marked as Hidden, System, and ReadOnly. The application handles this automatically during setup and runtime.
 
 ### Updating Configuration
 
 To update your configuration (e.g., after rotating the client secret or changing database), simply run the setup utility again:
 
 ```bash
-dotnet run -- --setup
+Mailer.exe --setup
 ```
 
 ## Usage
 
-### As a Console Application
+### Command-Line Options
 
-Build the project:
+| Option | Required | Description |
+|--------|----------|-------------|
+| `--setup` | No | Run the configuration setup wizard |
+| `--version`, `-v` | No | Display version information |
+| `--help`, `-h` | No | Show help message |
+| `--to` | Yes* | Recipient email addresses (space-separated) |
+| `--cc` | No | CC recipient email addresses (space-separated) |
+| `--bcc` | No | BCC recipient email addresses (space-separated) |
+| `--subject` | Yes* | Email subject |
+| `--body` | Yes* | HTML body content |
+| `--body-file` | Yes* | Path to HTML file for body content |
+| `--attachments` | No | File paths for attachments (space-separated) |
+
+\* Either `--body` or `--body-file` is required when sending emails
+
+### Examples
+
+#### Check Version
 ```bash
-dotnet build
+Mailer.exe --version
 ```
 
-Run the application with command-line arguments:
-
-#### Basic Example
+#### Basic Email
 ```bash
-dotnet run -- --to recipient@example.com --subject "Test Email" --body "<h1>Hello!</h1><p>This is a test email.</p>"
+Mailer.exe --to recipient@example.com --subject "Test Email" --body "<h1>Hello!</h1><p>This is a test email.</p>"
 ```
 
 #### Multiple Recipients
 ```bash
-dotnet run -- --to recipient1@example.com recipient2@example.com --cc cc@example.com --bcc bcc@example.com --subject "Team Update" --body "<p>Important update for the team.</p>"
+Mailer.exe --to user1@example.com user2@example.com --cc manager@example.com --subject "Team Update" --body "<p>Important update for the team.</p>"
 ```
 
 #### HTML Body from File
 ```bash
-dotnet run -- --to recipient@example.com --subject "Newsletter" --body "path/to/email.html" --body-is-file
+Mailer.exe --to recipient@example.com --subject "Newsletter" --body-file "templates/newsletter.html"
 ```
 
 #### With Attachments
 ```bash
-dotnet run -- --to recipient@example.com --subject "Documents" --body "<p>Please find attached documents.</p>" --attachments "file1.pdf" "file2.docx"
+Mailer.exe --to recipient@example.com --subject "Documents" --body "<p>Please find attached documents.</p>" --attachments "file1.pdf" "file2.docx"
 ```
 
 #### Complete Example
 ```bash
-dotnet run -- --to recipient@example.com --cc manager@example.com --subject "Monthly Report" --body "templates/report.html" --body-is-file --attachments "report.pdf" "data.xlsx"
+Mailer.exe --to recipient@example.com --cc manager@example.com --subject "Monthly Report" --body-file "templates/report.html" --attachments "report.pdf" "data.xlsx"
 ```
 
 ### As a Library
@@ -198,7 +206,7 @@ var config = new GraphConfig
 // Create email service
 var emailService = new EmailService(config);
 
-// Send email with HTML string
+// Send email with automatic retry (default: 3 retries)
 await emailService.SendMailAsync(
     to: new[] { "recipient@example.com" },
     cc: new[] { "cc@example.com" },
@@ -209,64 +217,109 @@ await emailService.SendMailAsync(
     attachmentPaths: null
 );
 
-// Send email with HTML file and attachments
+// Custom retry count
 await emailService.SendMailAsync(
     to: new[] { "recipient@example.com" },
-    cc: null,
-    bcc: null,
-    subject: "Report",
-    htmlBodyOrPath: "templates/email.html",
-    isBodyAFile: true,
-    attachmentPaths: new[] { "report.pdf", "data.xlsx" }
+    subject: "Important",
+    htmlBodyOrPath: "<p>Critical message</p>",
+    maxRetries: 5  // 6 total attempts
 );
 ```
 
-## Command-Line Options
+## Advanced Features
 
-| Option | Required | Description |
-|--------|----------|-------------|
-| `--setup` | No | Run the secure configuration setup utility |
-| `--to` | Yes | Recipient email addresses (can specify multiple) |
-| `--cc` | No | CC recipient email addresses (can specify multiple) |
-| `--bcc` | No | BCC recipient email addresses (can specify multiple) |
-| `--subject` | Yes | Email subject |
-| `--body` | Yes | HTML body content or path to HTML file |
-| `--body-is-file` | No | Indicates if `--body` is a file path (default: false) |
-| `--attachments` | No | File paths for attachments (can specify multiple) |
+### Automatic Retry Logic
+
+The application automatically retries failed email sends with exponential backoff:
+
+- **Default**: 3 retry attempts (4 total tries)
+- **Backoff delays**: 1s, 2s, 4s between retries
+- **Configurable**: Adjust `maxRetries` parameter when using as a library
+- **Smart logging**: Shows attempt number and retry delays
+
+Example log output:
+```
+[17:30:15 WRN] ⚠ Attempt 1/4 failed: Network timeout. Retrying in 1000ms...
+[17:30:16 INF] ✓ Email sent successfully on attempt 2/4 in 2341ms
+```
+
+### Performance Monitoring
+
+Every email send is tracked with performance metrics:
+
+- **Duration**: Milliseconds from start to completion
+- **Attempts**: Number of retries needed
+- **Success/Failure**: Final result
+- **Database logging**: All metrics stored in `MailerLogs` table
+
+Query performance metrics:
+```sql
+SELECT 
+    TimeStamp,
+    JSON_VALUE(Properties, '$.DurationMs') AS DurationMs,
+    JSON_VALUE(Properties, '$.Attempt') AS Attempts,
+    JSON_VALUE(Properties, '$.Success') AS Success
+FROM MailerLogs
+WHERE Message LIKE '%performance%'
+ORDER BY TimeStamp DESC;
+```
+
+### Email Audit Trail
+
+All email sends are automatically logged to the `MailerLogs` database table:
+
+- Recipients (To, CC, BCC)
+- Subject and body
+- Timestamp
+- Success/failure status
+- Error messages (if failed)
+
+See [docs/EMAIL_LOGGING.md](docs/EMAIL_LOGGING.md) for detailed logging documentation.
+See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) for performance monitoring guide.
 
 ## Project Structure
 
 ```
 mailer/
-├── Mailer.csproj              # Project file
-├── Program.cs                 # Console app entry point
-├── ConfigSetup.cs             # Configuration setup utility
-├── Services/
-│   ├── EmailService.cs        # Reusable email service
-│   └── SecureConfigService.cs # SQL Server configuration management
 ├── Models/
-│   ├── GraphConfig.cs         # Graph API configuration model
-│   └── DatabaseConfig.cs      # Database connection configuration
-├── docs/                      # AI development artifacts
-│   ├── implementation_plan.md # Initial planning document
-│   ├── task.md                # Task breakdown and progress
-│   └── walkthrough.md         # Project walkthrough
-├── db.config.json             # Database connection config (created by setup, hidden/readonly)
-├── SECURITY.md                # Security documentation
-└── README.md                  # This file
+│   ├── DatabaseConfig.cs      # Database connection configuration
+│   └── GraphConfig.cs         # Microsoft Graph API configuration
+├── Services/
+│   ├── EmailService.cs        # Email sending with retry logic
+│   └── SecureConfigService.cs # SQL Server credential storage
+├── docs/                      # Documentation
+│   ├── README.md              # Documentation index
+│   ├── DEPLOYMENT.md          # Deployment guide
+│   ├── DISTRIBUTION.md        # Self-contained distribution
+│   ├── FRAMEWORK_DEPENDENT.md # Framework-dependent version
+│   ├── EMAIL_LOGGING.md       # Logging with Serilog
+│   ├── PERFORMANCE.md         # Retry logic & monitoring
+│   ├── SECURITY.md            # Security guide
+│   ├── implementation_plan.md # Implementation plan
+│   ├── task.md                # Task tracking
+│   └── walkthrough.md         # Development walkthrough
+├── scripts/                   # Build scripts
+│   ├── publish.bat            # Windows publish script
+│   ├── publish.sh             # Unix publish script
+│   └── README.md              # Scripts documentation
+├── ConfigSetup.cs             # Configuration setup wizard
+├── Program.cs                 # Main entry point
+├── Mailer.csproj              # Project file
+├── README.md                  # This file
+├── CHANGELOG.md               # Version history
+├── LICENSE                    # License file
+└── .gitignore                 # Git ignore rules
 ```
 
 ## Logging
 
-The application uses **Serilog** for comprehensive logging of all operations.
+The application uses **Serilog** for comprehensive logging to multiple destinations.
 
-### Log Configuration
+### Log Destinations
 
-- **Console Output:** Logs are displayed in the console with timestamps and log levels
-- **File Output:** Daily rotating log files in the `logs/` directory
-- **Log File Pattern:** `logs/mailer-YYYYMMDD.log`
-- **Retention:** Keeps the last 30 days of log files
-- **Log Levels:** Debug, Information, Warning, Error
+- **Console**: Real-time output with timestamps and log levels
+- **File**: Daily rotating log files in `logs/` directory (30-day retention)
+- **Database**: All logs written to SQL Server `MailerLogs` table
 
 ### What Gets Logged
 
@@ -274,30 +327,42 @@ The application uses **Serilog** for comprehensive logging of all operations.
 - Configuration loading and validation
 - Email service initialization
 - Email sending operations (recipients, subject, attachments)
-- File operations (HTML body loading, attachment processing)
+- Retry attempts with delays
+- Performance metrics (duration, success rate)
 - Success confirmations
 - All errors with full exception details
 
 ### Log File Location
 
-Log files are created in the `logs/` directory:
 ```
 logs/
-├── mailer-20251119.log
-├── mailer-20251120.log
+├── mailer-20251206.log
+├── mailer-20251205.log
 └── ...
 ```
 
 ### Example Log Output
 
 ```
-2025-11-19 21:12:12.089 +01:00 [INF] === Mailer Application Started ===
-2025-11-19 21:12:12.150 +01:00 [INF] Command line arguments: --to user@example.com
-2025-11-19 21:12:12.165 +01:00 [INF] Loading configuration from appsettings.json
-2025-11-19 21:12:12.229 +01:00 [INF] Configuration loaded successfully
-2025-11-19 21:12:12.271 +01:00 [INF] Initializing EmailService
-2025-11-19 21:12:12.375 +01:00 [INF] Starting email send operation
-2025-11-19 21:12:13.677 +01:00 [INF] Email sent successfully
+[17:30:15 INF] === Mailer Application Started ===
+[17:30:15 INF] Starting email send operation. Subject: Test, MaxRetries: 3
+[17:30:16 INF] ✓ Email sent successfully on attempt 1/4 in 1234ms
+[17:30:16 INF] Email send performance: 1234ms
+```
+
+## Documentation
+
+Comprehensive documentation is available in the `docs/` folder:
+
+- **[docs/README.md](docs/README.md)** - Documentation index
+- **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Deployment options and guide
+- **[docs/SECURITY.md](docs/SECURITY.md)** - Security architecture and best practices
+- **[docs/EMAIL_LOGGING.md](docs/EMAIL_LOGGING.md)** - Logging system documentation
+- **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)** - Retry logic and performance monitoring
+- **[docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)** - Self-contained distribution guide
+- **[docs/FRAMEWORK_DEPENDENT.md](docs/FRAMEWORK_DEPENDENT.md)** - Framework-dependent version
+
+## License
 
 This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)**.
 
@@ -319,29 +384,20 @@ See the [LICENSE](LICENSE) file for full details or visit [CC BY-NC 4.0](https:/
 
 This entire project was created using **Google's Antigravity IDE**, a next-generation development environment powered by advanced AI capabilities. The development process involved:
 
-1. **Natural Language Requirements** - The project was initiated with a simple natural language description of the desired functionality
+1. **Natural Language Requirements** - The project was initiated with a simple natural language description
 2. **AI-Driven Implementation** - The **Claude Sonnet 4.5** AI model automatically generated:
    - Complete .NET Core project structure
-   - All source code (EmailService, Program.cs, configuration models)
+   - All source code with retry logic and performance monitoring
    - NuGet package management and dependencies
-   - Comprehensive logging with Serilog
-   - Complete documentation (README, LICENSE)
+   - Comprehensive logging with Serilog (console, file, database)
+   - Complete documentation suite
    - Git repository setup and GitHub integration
-3. **Iterative Refinement** - Through conversational interactions, features were added and refined:
-   - HTML email support (string and file-based)
-   - File attachment handling
-   - Daily rotating log files
-   - Command-line interface
-4. **Testing and Validation** - The AI assisted in testing the application with real Azure AD credentials and email sending
-
-### What Was Tested
-
-This project tested Antigravity IDE's ability to:
-- Generate production-ready, well-structured code
-- Implement complex integrations (Microsoft Graph API, OAuth2)
-- Create comprehensive documentation
-- Handle real-world requirements (logging, error handling, configuration)
-- Manage the entire development lifecycle from concept to GitHub deployment
+3. **Iterative Refinement** - Through conversational interactions, features were added:
+   - Automatic retry with exponential backoff
+   - Performance monitoring and metrics
+   - Database logging and audit trail
+   - Version information and --version command
+4. **Testing and Validation** - The AI assisted in testing with real Azure AD credentials
 
 ### Technology Stack
 
@@ -350,10 +406,14 @@ This project tested Antigravity IDE's ability to:
 - **Framework**: .NET 9.0
 - **APIs**: Microsoft Graph API
 - **Authentication**: Azure Identity (OAuth2)
-- **Logging**: Serilog
+- **Logging**: Serilog (Console, File, MSSqlServer sinks)
+- **Database**: Microsoft SQL Server
 
 All code, documentation, and project structure were generated through AI-assisted development.
 
 ## Support
 
-For issues related to Microsoft Graph API, consult the [official documentation](https://learn.microsoft.com/en-us/graph/api/user-sendmail).
+- **Documentation**: See [docs/README.md](docs/README.md) for comprehensive guides
+- **Microsoft Graph API**: [Official Documentation](https://learn.microsoft.com/en-us/graph/api/user-sendmail)
+- **Issues**: Check logs in `logs/` directory and `MailerLogs` database table
+- **Version**: Run `Mailer.exe --version` to see current version and features

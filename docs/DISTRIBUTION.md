@@ -21,8 +21,8 @@ Mailer.exe --setup
 
 You'll be prompted for:
 - **Database Server**: IP or hostname (e.g., `192.170.10.13`)
-- **Database Name**: e.g., `SaccoGest`
-- **Table Name**: e.g., `SaccoGest`
+- **Database Name**: e.g., `MailerDB`
+- **Table Name**: e.g., `MailerConfig`
 - **Authentication**: Windows or SQL Server
 - **Azure Tenant ID**: From Azure Portal
 - **Azure Client ID**: From App Registration

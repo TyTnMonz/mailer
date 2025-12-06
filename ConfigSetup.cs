@@ -27,8 +27,8 @@ public class ConfigSetup
         Console.WriteLine();
 
         string serverIp = PromptForValue("Database Server IP or hostname (e.g., localhost, 192.168.1.100)", isSecret: false);
-        string databaseName = PromptForValue("Database Name (e.g., MailerDB, SaccoGest)", isSecret: false);
-        string tableName = PromptForValue("Table Name (e.g., MailerConfig, SaccoGest)", isSecret: false);
+        string databaseName = PromptForValue("Database Name (e.g., MailerDB, EmailConfig)", isSecret: false);
+        string tableName = PromptForValue("Table Name (e.g., MailerConfig, GraphCredentials)", isSecret: false);
         
         Console.WriteLine();
         Console.Write("Use Windows Authentication? (yes/no, default: yes): ");

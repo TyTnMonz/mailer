@@ -10,7 +10,7 @@ namespace Mailer.Services;
 public class SecureConfigService
 {
     private static string? _connectionString;
-    private static string _tableName = "SaccoGest"; // Default table name
+    private static string _tableName = "MailerConfig"; // Default table name
     private static readonly ILogger _logger = Log.Logger;
 
     /// <summary>

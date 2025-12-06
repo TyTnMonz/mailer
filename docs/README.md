@@ -94,7 +94,7 @@ The application uses these configuration files:
 |------|----------|---------|----------|
 | `db.config.json` | Program directory | Database connection details | Optional (Hidden/System/ReadOnly) |
 | `MailerLogs` | SQL Server | Email send logs | SQL Server permissions |
-| `SaccoGest` | SQL Server | Graph API credentials | SQL Server permissions |
+| `MailerConfig` | SQL Server | Graph API credentials | SQL Server permissions |
 | `logs/*.log` | Program directory | Application logs | File system permissions |
 
 ## 📊 Architecture Overview

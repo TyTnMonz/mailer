@@ -10,7 +10,7 @@ The Mailer application implements a multi-layered security approach to protect s
 
 Microsoft Graph API credentials are stored securely in SQL Server:
 
-- **Location**: SQL Server database table (configurable, default: `SaccoGest`)
+- **Location**: SQL Server database table (configurable, default: `MailerConfig`)
 - **Fields**: TenantID, ClientID, ClientSec, Sender, To (Recipients)
 - **Access Control**: Protected by SQL Server authentication and permissions
 - **Encryption**: SQL Server Transparent Data Encryption (TDE) can be enabled
