@@ -73,7 +73,7 @@ public class EmailService
     }
 
     /// <summary>
-    /// Sends an email using Microsoft Graph API.
+    /// Sends an email using Microsoft Graph API with automatic retry and performance monitoring.
     /// </summary>
     /// <param name="to">List of recipient email addresses (required).</param>
     /// <param name="cc">List of CC recipient email addresses (optional).</param>
@@ -82,6 +82,7 @@ public class EmailService
     /// <param name="htmlBodyOrPath">HTML body content or path to HTML file.</param>
     /// <param name="isBodyAFile">If true, htmlBodyOrPath is treated as a file path; otherwise, as HTML content.</param>
     /// <param name="attachmentPaths">List of file paths to attach (optional).</param>
+    /// <param name="maxRetries">Maximum number of retry attempts (default: 3).</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task SendMailAsync(
         IEnumerable<string> to,
@@ -90,7 +91,83 @@ public class EmailService
         string subject = "",
         string htmlBodyOrPath = "",
         bool isBodyAFile = false,
-        IEnumerable<string>? attachmentPaths = null)
+        IEnumerable<string>? attachmentPaths = null,
+        int maxRetries = 3)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        int attempt = 0;
+        Exception? lastException = null;
+
+        _logger.Information("Starting email send operation. Subject: {Subject}, IsBodyAFile: {IsBodyAFile}, MaxRetries: {MaxRetries}", 
+            subject, isBodyAFile, maxRetries);
+
+        while (attempt <= maxRetries)
+        {
+            attempt++;
+            
+            try
+            {
+                await SendMailInternalAsync(to, cc, bcc, subject, htmlBodyOrPath, isBodyAFile, attachmentPaths);
+                
+                stopwatch.Stop();
+                _logger.Information("✓ Email sent successfully on attempt {Attempt}/{MaxAttempts} in {ElapsedMs}ms", 
+                    attempt, maxRetries + 1, stopwatch.ElapsedMilliseconds);
+                
+                // Log performance metrics
+                _logger.ForContext("EventType", "PerformanceMetric")
+                       .ForContext("Operation", "EmailSend")
+                       .ForContext("DurationMs", stopwatch.ElapsedMilliseconds)
+                       .ForContext("Attempt", attempt)
+                       .ForContext("Success", true)
+                       .Information("Email send performance: {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+                
+                return; // Success!
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                
+                if (attempt > maxRetries)
+                {
+                    stopwatch.Stop();
+                    _logger.Error(ex, "✗ Email send failed after {Attempts} attempts in {ElapsedMs}ms", 
+                        attempt, stopwatch.ElapsedMilliseconds);
+                    
+                    // Log failure metrics
+                    _logger.ForContext("EventType", "PerformanceMetric")
+                           .ForContext("Operation", "EmailSend")
+                           .ForContext("DurationMs", stopwatch.ElapsedMilliseconds)
+                           .ForContext("Attempt", attempt)
+                           .ForContext("Success", false)
+                           .Error(ex, "Email send failed after all retries");
+                    
+                    throw;
+                }
+                
+                // Calculate exponential backoff delay
+                int delayMs = (int)Math.Pow(2, attempt - 1) * 1000; // 1s, 2s, 4s, 8s...
+                _logger.Warning("⚠ Attempt {Attempt}/{MaxAttempts} failed: {ErrorMessage}. Retrying in {DelayMs}ms...", 
+                    attempt, maxRetries + 1, ex.Message, delayMs);
+                
+                await Task.Delay(delayMs);
+            }
+        }
+        
+        // This should never be reached, but just in case
+        throw lastException ?? new Exception("Email send failed for unknown reason");
+    }
+
+    /// <summary>
+    /// Internal method that performs the actual email send operation.
+    /// </summary>
+    private async Task SendMailInternalAsync(
+        IEnumerable<string> to,
+        IEnumerable<string>? cc,
+        IEnumerable<string>? bcc,
+        string subject,
+        string htmlBodyOrPath,
+        bool isBodyAFile,
+        IEnumerable<string>? attachmentPaths)
     {
         _logger.Information("Starting email send operation. Subject: {Subject}, IsBodyAFile: {IsBodyAFile}", 
             subject, isBodyAFile);
@@ -212,13 +289,48 @@ public class EmailService
 
             await _graphClient.Users[_senderEmail].SendMail.PostAsync(requestBody);
 
-            _logger.Information("Email sent successfully. Subject: {Subject}, To: {ToRecipients}", 
-                subject, string.Join(", ", toList));
+            // Log successful email send with structured data
+            string allRecipients = string.Join(", ", toList);
+            if (cc != null && cc.Any())
+                allRecipients += " (CC: " + string.Join(", ", cc) + ")";
+            if (bcc != null && bcc.Any())
+                allRecipients += " (BCC: " + string.Join(", ", bcc) + ")";
+
+            _logger.Information("EMAIL_SENT: {Subject} to {Recipients}", 
+                subject, allRecipients);
+            
+            // Log with enriched properties for database
+            _logger.ForContext("EventType", "EmailSent")
+                   .ForContext("Recipients", allRecipients)
+                   .ForContext("Subject", subject)
+                   .ForContext("Body", htmlBody)
+                   .ForContext("Result", "Success")
+                   .Information("Email sent successfully");
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to send email. Subject: {Subject}, Error: {ErrorMessage}", 
-                subject, ex.Message);
+            // Log failed email send with structured data
+            var toList = to?.ToList() ?? new List<string>();
+            string allRecipients = string.Join(", ", toList);
+            if (cc != null && cc.Any())
+                allRecipients += " (CC: " + string.Join(", ", cc) + ")";
+            if (bcc != null && bcc.Any())
+                allRecipients += " (BCC: " + string.Join(", ", bcc) + ")";
+
+            string bodyContent = isBodyAFile ? $"[File: {htmlBodyOrPath}]" : htmlBodyOrPath;
+
+            _logger.Error(ex, "EMAIL_FAILED: {Subject} to {Recipients}", 
+                subject, allRecipients);
+            
+            // Log with enriched properties for database
+            _logger.ForContext("EventType", "EmailFailed")
+                   .ForContext("Recipients", allRecipients)
+                   .ForContext("Subject", subject)
+                   .ForContext("Body", bodyContent)
+                   .ForContext("Result", "Failed")
+                   .ForContext("ErrorMessage", ex.Message)
+                   .Error(ex, "Failed to send email");
+
             throw;
         }
     }

@@ -1,7 +1,7 @@
-﻿using Microsoft.Extensions.Configuration;
-using Mailer.Models;
+﻿using Mailer.Models;
 using Mailer.Services;
 using Serilog;
+using System.Reflection;
 
 namespace Mailer;
 
@@ -28,6 +28,24 @@ class Program
 
             // Parse command-line arguments manually
             var parsedArgs = ParseArguments(args);
+
+
+            // Check for setup command
+            if (parsedArgs.ContainsKey("--setup"))
+            {
+                Log.Information("Running configuration setup utility");
+                ConfigSetup.Run();
+                Log.Information("Setup utility completed");
+                return 0;
+            }
+
+            // Check for version command
+            if (parsedArgs.ContainsKey("--version") || parsedArgs.ContainsKey("-v"))
+            {
+                ShowVersion();
+                Log.Information("Version information displayed");
+                return 0;
+            }
 
             if (parsedArgs.ContainsKey("--help") || parsedArgs.ContainsKey("-h"))
             {
@@ -79,31 +97,92 @@ class Program
             Log.Information("Email parameters - To: {To}, Subject: {Subject}, BodyIsFile: {BodyIsFile}, Attachments: {AttachmentCount}",
                 string.Join(", ", to), subject, bodyIsFile, attachments?.Length ?? 0);
 
-            // Load configuration
-            Log.Information("Loading configuration from appsettings.json");
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
-                .Build();
-
-            var graphConfig = new GraphConfig();
-            configuration.GetSection("GraphConfig").Bind(graphConfig);
-
-            // Validate configuration
-            if (string.IsNullOrWhiteSpace(graphConfig.TenantId) ||
-                string.IsNullOrWhiteSpace(graphConfig.ClientId) ||
-                string.IsNullOrWhiteSpace(graphConfig.ClientSecret) ||
-                string.IsNullOrWhiteSpace(graphConfig.SenderEmail))
+            // Load database configuration
+            Log.Information("Loading database configuration");
+            var dbConfig = DatabaseConfig.Load();
+            if (dbConfig == null || string.IsNullOrWhiteSpace(dbConfig.ServerIp) || 
+                string.IsNullOrWhiteSpace(dbConfig.DatabaseName) || 
+                string.IsNullOrWhiteSpace(dbConfig.TableName))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Error: Microsoft Graph configuration is incomplete.");
-                Console.WriteLine("Please configure TenantId, ClientId, ClientSecret, and SenderEmail in appsettings.json");
+                Console.WriteLine("Error: Database connection not configured.");
+                Console.WriteLine("Please run the setup utility first to configure database connection:");
+                Console.WriteLine("  dotnet run -- --setup");
                 Console.ResetColor();
-                Log.Error("Microsoft Graph configuration is incomplete in appsettings.json");
+                Log.Error("Database configuration not found");
                 return 1;
             }
 
-            Log.Information("Configuration loaded successfully. Sender: {SenderEmail}", graphConfig.SenderEmail);
+            // Build connection string from config values
+            string connectionString = dbConfig.GetConnectionString();
+            
+            // Reconfigure Serilog to add database sink
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Console(
+                    outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+                .WriteTo.File(
+                    path: "logs/mailer-.log",
+                    rollingInterval: RollingInterval.Day,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                    retainedFileCountLimit: 30)
+                .WriteTo.MSSqlServer(
+                    connectionString: connectionString,
+                    sinkOptions: new Serilog.Sinks.MSSqlServer.MSSqlServerSinkOptions
+                    {
+                        TableName = "MailerLogs",
+                        AutoCreateSqlTable = true,
+                        BatchPostingLimit = 1
+                    })
+                .Enrich.WithProperty("Application", "Mailer")
+                .CreateLogger();
+            
+            SecureConfigService.SetConnectionString(connectionString);
+            SecureConfigService.SetTableName(dbConfig.TableName);
+            Log.Information("Database connection configured: Server={Server}, Database={Database}, Table={Table}", 
+                dbConfig.ServerIp, dbConfig.DatabaseName, dbConfig.TableName);
+            Log.Information("Serilog database sink configured for table: MailerLogs");
+
+            // Load protected configuration from database
+            Log.Information("Loading protected configuration from database");
+            GraphConfig graphConfig;
+            
+            try
+            {
+                graphConfig = SecureConfigService.LoadConfig();
+                Log.Information("Configuration loaded successfully. Sender: {SenderEmail}", graphConfig.SenderEmail);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("Connection string not set"))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Error: Database connection not configured.");
+                Console.WriteLine("Please run the setup utility first to configure database connection:");
+                Console.WriteLine("  dotnet run -- --setup");
+                Console.ResetColor();
+                Log.Error(ex, "Database connection not configured");
+                return 1;
+            }
+            catch (FileNotFoundException ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Error: Protected configuration file not found.");
+                Console.WriteLine("Please run the setup utility first:");
+                Console.WriteLine("  dotnet run -- --setup");
+                Console.ResetColor();
+                Log.Error(ex, "Protected configuration file not found");
+                return 1;
+            }
+            catch (InvalidOperationException ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Error: Failed to load configuration.");
+                Console.WriteLine("The configuration file may be corrupted.");
+                Console.WriteLine("Please run the setup utility again:");
+                Console.WriteLine("  dotnet run -- --setup");
+                Console.ResetColor();
+                Log.Error(ex, "Failed to load configuration");
+                return 1;
+            }
 
             // Create email service
             var emailService = new EmailService(graphConfig);
@@ -198,23 +277,65 @@ class Program
 
     static void ShowHelp()
     {
-        Console.WriteLine("Mailer - Send emails using Microsoft Graph API");
+        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+        
+        Console.WriteLine($"Mailer v{version?.ToString(3) ?? "2.0.0"} - Email Sender using Microsoft Graph API");
         Console.WriteLine();
         Console.WriteLine("Usage:");
-        Console.WriteLine("  Mailer --to <email> [--cc <email>] [--bcc <email>] --subject <subject> --body <html|path> [--body-is-file] [--attachments <file>...]");
+        Console.WriteLine("  Mailer.exe --to <email> --subject <subject> --body <html> [options]");
         Console.WriteLine();
-        Console.WriteLine("Options:");
-        Console.WriteLine("  --to <email>           Recipient email addresses (required, can specify multiple)");
-        Console.WriteLine("  --cc <email>           CC recipient email addresses (optional, can specify multiple)");
-        Console.WriteLine("  --bcc <email>          BCC recipient email addresses (optional, can specify multiple)");
-        Console.WriteLine("  --subject <subject>    Email subject (required)");
-        Console.WriteLine("  --body <html|path>     HTML body content or path to HTML file (required)");
-        Console.WriteLine("  --body-is-file         Indicates if --body is a file path (default: false)");
-        Console.WriteLine("  --attachments <file>   File paths for attachments (optional, can specify multiple)");
-        Console.WriteLine("  --help, -h             Show this help message");
+        Console.WriteLine("Commands:");
+        Console.WriteLine("  --setup              Run configuration setup wizard");
+        Console.WriteLine("  --version, -v        Show version information");
+        Console.WriteLine("  --help, -h           Show this help message");
+        Console.WriteLine();
+        Console.WriteLine("Required Arguments:");
+        Console.WriteLine("  --to <emails>        Recipient email address(es) (space-separated)");
+        Console.WriteLine("  --subject <text>     Email subject");
+        Console.WriteLine("  --body <html>        HTML body content");
+        Console.WriteLine("  --body-file <path>   Path to HTML file for body content");
+        Console.WriteLine();
+        Console.WriteLine("Optional Arguments:");
+        Console.WriteLine("  --cc <emails>        CC recipient(s) (space-separated)");
+        Console.WriteLine("  --bcc <emails>       BCC recipient(s) (space-separated)");
+        Console.WriteLine("  --attachments <paths> File attachment(s) (space-separated)");
         Console.WriteLine();
         Console.WriteLine("Examples:");
-        Console.WriteLine("  Mailer --to recipient@example.com --subject \"Test\" --body \"<h1>Hello!</h1>\"");
-        Console.WriteLine("  Mailer --to user@example.com --cc manager@example.com --subject \"Report\" --body report.html --body-is-file --attachments file1.pdf file2.xlsx");
+        Console.WriteLine("  Mailer.exe --to user@example.com --subject \"Test\" --body \"<h1>Hello</h1>\"");
+        Console.WriteLine("  Mailer.exe --to user1@example.com user2@example.com --subject \"Update\" --body-file email.html");
+        Console.WriteLine("  Mailer.exe --to user@example.com --subject \"Files\" --body \"See attached\" --attachments file1.pdf file2.docx");
+        Console.WriteLine();
+        Console.WriteLine("Configuration:");
+        Console.WriteLine("  Run 'Mailer.exe --setup' to configure database and Microsoft Graph API credentials.");
+        Console.WriteLine();
+    }
+
+    static void ShowVersion()
+    {
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        var version = assembly.GetName().Version;
+        var infoVersion = assembly.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        var description = assembly.GetCustomAttribute<System.Reflection.AssemblyDescriptionAttribute>()?.Description;
+        var copyright = assembly.GetCustomAttribute<System.Reflection.AssemblyCopyrightAttribute>()?.Copyright;
+        
+        Console.WriteLine("╔════════════════════════════════════════════════════════════╗");
+        Console.WriteLine("║                    Mailer - Email Sender                   ║");
+        Console.WriteLine("╚════════════════════════════════════════════════════════════╝");
+        Console.WriteLine();
+        Console.WriteLine($"Version:     {infoVersion ?? version?.ToString() ?? "2.0.0"}");
+        Console.WriteLine($"Description: {description ?? "Email sender using Microsoft Graph API"}");
+        Console.WriteLine($"Copyright:   {copyright ?? "Copyright © 2025"}");
+        Console.WriteLine($"Framework:   .NET {Environment.Version}");
+        Console.WriteLine($"Platform:    {Environment.OSVersion}");
+        Console.WriteLine();
+        Console.WriteLine("Features:");
+        Console.WriteLine("  • Microsoft Graph API integration");
+        Console.WriteLine("  • SQL Server credential storage");
+        Console.WriteLine("  • Serilog logging (console, file, database)");
+        Console.WriteLine("  • Automatic retry with exponential backoff");
+        Console.WriteLine("  • Performance monitoring");
+        Console.WriteLine();
+        Console.WriteLine("For help, run: Mailer.exe --help");
+        Console.WriteLine();
     }
 }

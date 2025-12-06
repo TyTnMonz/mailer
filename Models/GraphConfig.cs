@@ -1,27 +1,24 @@
 namespace Mailer.Models;
 
 /// <summary>
-/// Configuration model for Microsoft Graph API settings.
+/// Microsoft Graph API configuration
 /// </summary>
 public class GraphConfig
 {
-    /// <summary>
-    /// Azure AD tenant ID (Directory ID).
-    /// </summary>
     public string TenantId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Application (client) ID from Azure AD app registration.
-    /// </summary>
     public string ClientId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Client secret value from Azure AD app registration.
-    /// </summary>
     public string ClientSecret { get; set; } = string.Empty;
+    public string SenderEmail { get; set; } = string.Empty;
+    public string Recipients { get; set; } = string.Empty;
 
     /// <summary>
-    /// Email address to send from (must exist in Office 365 tenant).
+    /// Validates that all required fields are populated
     /// </summary>
-    public string SenderEmail { get; set; } = string.Empty;
+    public bool IsValid()
+    {
+        return !string.IsNullOrWhiteSpace(TenantId) &&
+               !string.IsNullOrWhiteSpace(ClientId) &&
+               !string.IsNullOrWhiteSpace(ClientSecret) &&
+               !string.IsNullOrWhiteSpace(SenderEmail);
+    }
 }

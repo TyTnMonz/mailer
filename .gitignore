@@ -26,9 +26,9 @@ logs/
 *.log
 
 # Configuration files with sensitive data
-appsettings.json
+db.config.json
 
-# Test files (optional - remove if you want to include them)
+# Test files
 test-email.html
 test-attachment.txt
 
