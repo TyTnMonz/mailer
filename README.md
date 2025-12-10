@@ -319,13 +319,26 @@ mailer/
 
 ## Logging
 
-The application uses **Serilog** for comprehensive logging to multiple destinations.
+The application uses **Serilog** for comprehensive logging with **fully configurable sinks and log levels**.
 
-### Log Destinations
+### Log Destinations (All Configurable)
 
-- **Console**: Real-time output with timestamps and log levels
-- **File**: Daily rotating log files in `logs/` directory (30-day retention)
-- **Database**: All logs written to SQL Server `MailerLogs` table
+- **Console**: Information level (always enabled, clean output)
+- **File**: Configurable enable/disable + level (default: enabled, Information)
+  - Daily rotating logs in `logs/` directory (30-day retention)
+- **Database**: Configurable enable/disable + level (default: enabled, Debug)
+  - All logs written to SQL Server `MailerLogs` table
+- **Email History**: Configurable enable/disable (default: enabled)
+  - Dedicated `EmailHistory` table with one row per email
+
+### Configuration
+
+During `--setup` (Step 3: Logging Configuration), you can:
+- Enable/disable file logging + choose level (Debug/Information/Warning/Error)
+- Enable/disable database logging + choose level (Debug/Information/Warning/Error)
+- Enable/disable email history table
+
+Your choices are saved in `db.config.json` and used for all future runs.
 
 ### What Gets Logged
 

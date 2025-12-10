@@ -13,6 +13,13 @@ public class DatabaseConfig
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public bool UseWindowsAuth { get; set; } = true;
+    
+    // Logging configuration
+    public bool EnableFileLogging { get; set; } = true;
+    public bool EnableDatabaseLogging { get; set; } = true;
+    public bool EnableEmailHistory { get; set; } = true;
+    public string FileLogLevel { get; set; } = "Information";
+    public string DatabaseLogLevel { get; set; } = "Debug";
 
     /// <summary>
     /// Builds the connection string from the stored values

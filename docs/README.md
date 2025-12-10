@@ -10,7 +10,9 @@ Complete documentation for the Mailer email sending application.
 
 ### Configuration & Security
 - **[SECURITY.md](SECURITY.md)** - Security architecture, best practices, and privacy considerations
+- **[LOGGING_CONFIG.md](LOGGING_CONFIG.md)** - Log levels by sink (console, file, database)
 - **[EMAIL_LOGGING.md](EMAIL_LOGGING.md)** - Email logging with Serilog (database, file, console)
+- **[EMAIL_HISTORY.md](EMAIL_HISTORY.md)** - Dedicated EmailHistory table for email tracking
 - **[PERFORMANCE.md](PERFORMANCE.md)** - Retry logic, performance monitoring, and metrics
 
 ### Distribution

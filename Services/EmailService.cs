@@ -68,7 +68,7 @@ public class EmailService
         // Initialize Graph client with authentication
         _graphClient = new GraphServiceClient(clientSecretCredential);
 
-        _logger.Information("EmailService initialized successfully with TenantId: {TenantId}, ClientId: {ClientId}", 
+        _logger.Debug("EmailService initialized successfully with TenantId: {TenantId}, ClientId: {ClientId}", 
             config.TenantId, config.ClientId);
     }
 
@@ -110,8 +110,37 @@ public class EmailService
                 await SendMailInternalAsync(to, cc, bcc, subject, htmlBodyOrPath, isBodyAFile, attachmentPaths);
                 
                 stopwatch.Stop();
-                _logger.Information("✓ Email sent successfully on attempt {Attempt}/{MaxAttempts} in {ElapsedMs}ms", 
+                _logger.Debug("✓ Email sent successfully on attempt {Attempt}/{MaxAttempts} in {ElapsedMs}ms", 
                     attempt, maxRetries + 1, stopwatch.ElapsedMilliseconds);
+                
+                // Log to EmailHistory table
+                try
+                {
+                    var historyRecord = new EmailHistoryRecord
+                    {
+                        Timestamp = DateTime.Now,
+                        Sender = _senderEmail,
+                        ToRecipients = string.Join("; ", to),
+                        CcRecipients = cc != null && cc.Any() ? string.Join("; ", cc) : null,
+                        BccRecipients = bcc != null && bcc.Any() ? string.Join("; ", bcc) : null,
+                        Subject = subject,
+                        BodyPreview = htmlBodyOrPath.Length > 500 ? htmlBodyOrPath.Substring(0, 500) + "..." : htmlBodyOrPath,
+                        AttachmentCount = attachmentPaths?.Count() ?? 0,
+                        AttachmentNames = attachmentPaths != null && attachmentPaths.Any() 
+                            ? string.Join("; ", attachmentPaths.Select(Path.GetFileName)) 
+                            : null,
+                        Status = "Success",
+                        ErrorMessage = null,
+                        DurationMs = stopwatch.ElapsedMilliseconds,
+                        AttemptCount = attempt
+                    };
+                    
+                    EmailHistoryService.LogEmail(historyRecord);
+                }
+                catch (Exception logEx)
+                {
+                    _logger.Warning(logEx, "Failed to log email history, but email was sent successfully");
+                }
                 
                 // Log performance metrics
                 _logger.ForContext("EventType", "PerformanceMetric")
@@ -119,7 +148,7 @@ public class EmailService
                        .ForContext("DurationMs", stopwatch.ElapsedMilliseconds)
                        .ForContext("Attempt", attempt)
                        .ForContext("Success", true)
-                       .Information("Email send performance: {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+                       .Debug("Email send performance: {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
                 
                 return; // Success!
             }
@@ -132,6 +161,35 @@ public class EmailService
                     stopwatch.Stop();
                     _logger.Error(ex, "✗ Email send failed after {Attempts} attempts in {ElapsedMs}ms", 
                         attempt, stopwatch.ElapsedMilliseconds);
+                    
+                    // Log to EmailHistory table
+                    try
+                    {
+                        var historyRecord = new EmailHistoryRecord
+                        {
+                            Timestamp = DateTime.Now,
+                            Sender = _senderEmail,
+                            ToRecipients = string.Join("; ", to),
+                            CcRecipients = cc != null && cc.Any() ? string.Join("; ", cc) : null,
+                            BccRecipients = bcc != null && bcc.Any() ? string.Join("; ", bcc) : null,
+                            Subject = subject,
+                            BodyPreview = htmlBodyOrPath.Length > 500 ? htmlBodyOrPath.Substring(0, 500) + "..." : htmlBodyOrPath,
+                            AttachmentCount = attachmentPaths?.Count() ?? 0,
+                            AttachmentNames = attachmentPaths != null && attachmentPaths.Any() 
+                                ? string.Join("; ", attachmentPaths.Select(Path.GetFileName)) 
+                                : null,
+                            Status = "Failed",
+                            ErrorMessage = ex.Message,
+                            DurationMs = stopwatch.ElapsedMilliseconds,
+                            AttemptCount = attempt
+                        };
+                        
+                        EmailHistoryService.LogEmail(historyRecord);
+                    }
+                    catch (Exception logEx)
+                    {
+                        _logger.Warning(logEx, "Failed to log email history for failed send");
+                    }
                     
                     // Log failure metrics
                     _logger.ForContext("EventType", "PerformanceMetric")
@@ -279,7 +337,7 @@ public class EmailService
             }
 
             // Send the email
-            _logger.Information("Sending email via Microsoft Graph API. From: {SenderEmail}", _senderEmail);
+            _logger.Debug("Sending email via Microsoft Graph API. From: {SenderEmail}", _senderEmail);
             
             var requestBody = new Microsoft.Graph.Users.Item.SendMail.SendMailPostRequestBody
             {

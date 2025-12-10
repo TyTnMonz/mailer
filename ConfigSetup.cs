@@ -31,7 +31,7 @@ public class ConfigSetup
         string tableName = PromptForValue("Table Name (e.g., MailerConfig, GraphCredentials)", isSecret: false);
         
         Console.WriteLine();
-        Console.Write("Use Windows Authentication? (yes/no, default: yes): ");
+        Console.Write("Use Windows Authentication? (y/n, default: y): ");
         string? authResponse = Console.ReadLine()?.Trim().ToLower();
         bool useWindowsAuth = string.IsNullOrWhiteSpace(authResponse) || authResponse == "yes" || authResponse == "y";
 
@@ -114,8 +114,41 @@ public class ConfigSetup
             Password = password
         };
 
+        // Logging configuration
         Console.WriteLine();
-        Console.Write("Do you want to secure the db.config.json file (Hidden, System, ReadOnly)? (yes/no, default: no): ");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("Step 3: Logging Configuration");
+        Console.ResetColor();
+        Console.WriteLine();
+        
+        Console.Write("Enable file logging? (y/n, default: y): ");
+        string? fileLoggingInput = Console.ReadLine()?.Trim().ToLower();
+        dbConfig.EnableFileLogging = string.IsNullOrWhiteSpace(fileLoggingInput) || fileLoggingInput == "yes" || fileLoggingInput == "y";
+        
+        if (dbConfig.EnableFileLogging)
+        {
+            Console.Write("File log level (D=Debug, I=Information, W=Warning, E=Error, default: I): ");
+            string? fileLevelInput = Console.ReadLine()?.Trim();
+            dbConfig.FileLogLevel = ValidateLogLevel(fileLevelInput, "Information");
+        }
+        
+        Console.Write("Enable database full logs (MailerLogs table)? (y/n, default: y): ");
+        string? dbLoggingInput = Console.ReadLine()?.Trim().ToLower();
+        dbConfig.EnableDatabaseLogging = string.IsNullOrWhiteSpace(dbLoggingInput) || dbLoggingInput == "yes" || dbLoggingInput == "y";
+        
+        if (dbConfig.EnableDatabaseLogging)
+        {
+            Console.Write("Database log level (D=Debug, I=Information, W=Warning, E=Error, default: D): ");
+            string? dbLevelInput = Console.ReadLine()?.Trim();
+            dbConfig.DatabaseLogLevel = ValidateLogLevel(dbLevelInput, "Debug");
+        }
+        
+        Console.Write("Enable email history table (EmailHistory)? (y/n, default: y): ");
+        string? emailHistoryInput = Console.ReadLine()?.Trim().ToLower();
+        dbConfig.EnableEmailHistory = string.IsNullOrWhiteSpace(emailHistoryInput) || emailHistoryInput == "yes" || emailHistoryInput == "y";
+
+        Console.WriteLine();
+        Console.Write("Do you want to secure the db.config.json file (Hidden, System, ReadOnly)? (y/n, default: n): ");
         string? secureFileInput = Console.ReadLine()?.Trim().ToLower();
         bool secureFile = secureFileInput == "yes" || secureFileInput == "y";
 
@@ -163,7 +196,7 @@ public class ConfigSetup
 
         // Step 2: Check if config already exists
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("Step 2: Microsoft Graph API Configuration");
+        Console.WriteLine("Step 4: Microsoft Graph API Configuration");
         Console.ResetColor();
         Console.WriteLine();
 
@@ -176,7 +209,7 @@ public class ConfigSetup
             Console.WriteLine($"Location: {SecureConfigService.GetConfigFilePath()}");
             Console.ResetColor();
             Console.WriteLine();
-            Console.Write("Do you want to overwrite it? (yes/no): ");
+            Console.Write("Do you want to overwrite it? (y/n): ");
             string? response = Console.ReadLine()?.Trim().ToLower();
             
             if (response != "yes" && response != "y")
@@ -333,5 +366,44 @@ public class ConfigSetup
         }
         
         return password.ToString();
+    }
+    
+    /// <summary>
+    /// Validates and returns a log level string
+    /// Accepts full names (Debug, Information, Warning, Error) or shortcuts (D, I, W, E)
+    /// </summary>
+    private static string ValidateLogLevel(string? input, string defaultLevel)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return defaultLevel;
+        
+        string normalized = input.Trim();
+        
+        // Check for single-letter shortcuts (case-insensitive)
+        if (normalized.Length == 1)
+        {
+            return normalized.ToUpper() switch
+            {
+                "D" => "Debug",
+                "I" => "Information",
+                "W" => "Warning",
+                "E" => "Error",
+                _ => defaultLevel
+            };
+        }
+        
+        // Check for full names (case-insensitive)
+        string[] validLevels = { "Debug", "Information", "Warning", "Error" };
+        
+        foreach (var level in validLevels)
+        {
+            if (normalized.Equals(level, StringComparison.OrdinalIgnoreCase))
+                return level;
+        }
+        
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine($"Invalid log level '{input}'. Using default: {defaultLevel}");
+        Console.ResetColor();
+        return defaultLevel;
     }
 }

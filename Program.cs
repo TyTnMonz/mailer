@@ -9,20 +9,15 @@ class Program
 {
     static async Task<int> Main(string[] args)
     {
-        // Initialize Serilog with daily rolling file and console output
-        // Different log levels per sink: Debug for file (detailed), Information for console (clean)
-        Log.Logger = new LoggerConfiguration()
+        // Initialize Serilog with console output (file logging added later if enabled)
+        var loggerConfig = new LoggerConfiguration()
             .MinimumLevel.Debug()  // Global minimum level
             .WriteTo.Console(
                 restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
-                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
-            .WriteTo.File(
-                path: "logs/mailer-.log",
-                rollingInterval: RollingInterval.Day,
-                restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Debug,
-                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
-                retainedFileCountLimit: 30)
-            .CreateLogger();
+                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}");
+        
+        // Note: File logging will be added after loading config if enabled
+        Log.Logger = loggerConfig.CreateLogger();
 
         try
         {
@@ -120,36 +115,58 @@ class Program
             // Build connection string from config values
             string connectionString = dbConfig.GetConnectionString();
             
-            // Reconfigure Serilog to add database sink
-            // Different log levels: Debug for file (detailed), Information for console/database (clean)
-            Log.Logger = new LoggerConfiguration()
+            // Reconfigure Serilog with conditional sinks based on user preferences
+            var logConfig = new LoggerConfiguration()
                 .MinimumLevel.Debug()  // Global minimum level
                 .WriteTo.Console(
                     restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
-                    outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
-                .WriteTo.File(
+                    outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}");
+            
+            // Add file logging if enabled
+            if (dbConfig.EnableFileLogging)
+            {
+                var fileLogLevel = ParseLogLevel(dbConfig.FileLogLevel);
+                logConfig.WriteTo.File(
                     path: "logs/mailer-.log",
                     rollingInterval: RollingInterval.Day,
-                    restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Debug,
+                    restrictedToMinimumLevel: fileLogLevel,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
-                    retainedFileCountLimit: 30)
-                .WriteTo.MSSqlServer(
+                    retainedFileCountLimit: 30);
+                Log.Debug("File logging enabled with level: {Level}", dbConfig.FileLogLevel);
+            }
+            
+            // Add database logging if enabled
+            if (dbConfig.EnableDatabaseLogging)
+            {
+                var dbLogLevel = ParseLogLevel(dbConfig.DatabaseLogLevel);
+                logConfig.WriteTo.MSSqlServer(
                     connectionString: connectionString,
-                    restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
+                    restrictedToMinimumLevel: dbLogLevel,
                     sinkOptions: new Serilog.Sinks.MSSqlServer.MSSqlServerSinkOptions
                     {
                         TableName = "MailerLogs",
                         AutoCreateSqlTable = true,
                         BatchPostingLimit = 1
-                    })
-                .Enrich.WithProperty("Application", "Mailer")
-                .CreateLogger();
+                    });
+                Log.Debug("Database logging enabled with level: {Level}", dbConfig.DatabaseLogLevel);
+            }
+            
+            logConfig.Enrich.WithProperty("Application", "Mailer");
+            Log.Logger = logConfig.CreateLogger();
             
             SecureConfigService.SetConnectionString(connectionString);
             SecureConfigService.SetTableName(dbConfig.TableName);
+            
+            // Initialize EmailHistory if enabled
+            if (dbConfig.EnableEmailHistory)
+            {
+                EmailHistoryService.SetConnectionString(connectionString);
+                EmailHistoryService.InitializeTable();
+                Log.Debug("EmailHistory table initialized");
+            }
+            
             Log.Debug("Database connection configured: Server={Server}, Database={Database}, Table={Table}", 
                 dbConfig.ServerIp, dbConfig.DatabaseName, dbConfig.TableName);
-            Log.Debug("Serilog database sink configured for table: MailerLogs");
 
             // Load protected configuration from database
             Log.Debug("Loading protected configuration from database");
@@ -219,7 +236,6 @@ class Program
             Console.WriteLine("✓ Email sent successfully!");
             Console.ResetColor();
             
-            Log.Information("=== Email sent successfully ===");
             return 0;
         }
         catch (FileNotFoundException ex)
@@ -289,6 +305,18 @@ class Program
         }
 
         return result;
+    }
+
+    static Serilog.Events.LogEventLevel ParseLogLevel(string level)
+    {
+        return level switch
+        {
+            "Debug" => Serilog.Events.LogEventLevel.Debug,
+            "Information" => Serilog.Events.LogEventLevel.Information,
+            "Warning" => Serilog.Events.LogEventLevel.Warning,
+            "Error" => Serilog.Events.LogEventLevel.Error,
+            _ => Serilog.Events.LogEventLevel.Information
+        };
     }
 
     static void ShowHelp()
