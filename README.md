@@ -145,6 +145,7 @@ Mailer.exe --setup
 | `--version`, `-v` | No | Display version information |
 | `--help`, `-h` | No | Show help message |
 | `--to` | Yes* | Recipient email addresses (space-separated) |
+| `--from` | No | Sender email address (overrides database default) |
 | `--cc` | No | CC recipient email addresses (space-separated) |
 | `--bcc` | No | BCC recipient email addresses (space-separated) |
 | `--subject` | Yes* | Email subject |
@@ -181,9 +182,14 @@ Mailer.exe --to recipient@example.com --subject "Newsletter" --body-file "templa
 Mailer.exe --to recipient@example.com --subject "Documents" --body "<p>Please find attached documents.</p>" --attachments "file1.pdf" "file2.docx"
 ```
 
+#### With Custom Sender
+```bash
+Mailer.exe --from customsender@example.com --to recipient@example.com --subject "Test" --body "<h1>Hello</h1>"
+```
+
 #### Complete Example
 ```bash
-Mailer.exe --to recipient@example.com --cc manager@example.com --subject "Monthly Report" --body-file "templates/report.html" --attachments "report.pdf" "data.xlsx"
+Mailer.exe --from sender@example.com --to recipient@example.com --cc manager@example.com --subject "Monthly Report" --body-file "templates/report.html" --attachments "report.pdf" "data.xlsx"
 ```
 
 ### As a Library

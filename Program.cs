@@ -93,9 +93,10 @@ class Program
             var body = parsedArgs["--body"][0];
             var bodyIsFile = parsedArgs.ContainsKey("--body-is-file");
             var attachments = parsedArgs.ContainsKey("--attachments") ? parsedArgs["--attachments"] : null;
+            var fromEmail = parsedArgs.ContainsKey("--from") ? parsedArgs["--from"][0] : null;
 
-            Log.Information("Email parameters - To: {To}, Subject: {Subject}, BodyIsFile: {BodyIsFile}, Attachments: {AttachmentCount}",
-                string.Join(", ", to), subject, bodyIsFile, attachments?.Length ?? 0);
+            Log.Information("Email parameters - To: {To}, Subject: {Subject}, BodyIsFile: {BodyIsFile}, Attachments: {AttachmentCount}, From: {From}",
+                string.Join(", ", to), subject, bodyIsFile, attachments?.Length ?? 0, fromEmail ?? "(using default)");
 
             // Load database configuration
             Log.Information("Loading database configuration");
@@ -182,6 +183,14 @@ class Program
                 Console.ResetColor();
                 Log.Error(ex, "Failed to load configuration");
                 return 1;
+            }
+
+            // Override sender email if --from parameter is provided
+            if (!string.IsNullOrWhiteSpace(fromEmail))
+            {
+                Log.Information("Overriding sender email from '{DefaultSender}' to '{OverrideSender}'", 
+                    graphConfig.SenderEmail, fromEmail);
+                graphConfig.SenderEmail = fromEmail;
             }
 
             // Create email service
@@ -296,6 +305,7 @@ class Program
         Console.WriteLine("  --body-file <path>   Path to HTML file for body content");
         Console.WriteLine();
         Console.WriteLine("Optional Arguments:");
+        Console.WriteLine("  --from <email>       Sender email address (overrides database default)");
         Console.WriteLine("  --cc <emails>        CC recipient(s) (space-separated)");
         Console.WriteLine("  --bcc <emails>       BCC recipient(s) (space-separated)");
         Console.WriteLine("  --attachments <paths> File attachment(s) (space-separated)");
