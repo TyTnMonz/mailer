@@ -10,13 +10,16 @@ class Program
     static async Task<int> Main(string[] args)
     {
         // Initialize Serilog with daily rolling file and console output
+        // Different log levels per sink: Debug for file (detailed), Information for console (clean)
         Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Debug()
+            .MinimumLevel.Debug()  // Global minimum level
             .WriteTo.Console(
+                restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
                 outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
             .WriteTo.File(
                 path: "logs/mailer-.log",
                 rollingInterval: RollingInterval.Day,
+                restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Debug,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
                 retainedFileCountLimit: 30)
             .CreateLogger();
@@ -118,17 +121,21 @@ class Program
             string connectionString = dbConfig.GetConnectionString();
             
             // Reconfigure Serilog to add database sink
+            // Different log levels: Debug for file (detailed), Information for console/database (clean)
             Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Debug()
+                .MinimumLevel.Debug()  // Global minimum level
                 .WriteTo.Console(
+                    restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
                     outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
                 .WriteTo.File(
                     path: "logs/mailer-.log",
                     rollingInterval: RollingInterval.Day,
+                    restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Debug,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
                     retainedFileCountLimit: 30)
                 .WriteTo.MSSqlServer(
                     connectionString: connectionString,
+                    restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information,
                     sinkOptions: new Serilog.Sinks.MSSqlServer.MSSqlServerSinkOptions
                     {
                         TableName = "MailerLogs",
