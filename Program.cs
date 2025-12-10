@@ -24,7 +24,7 @@ class Program
         try
         {
             Log.Information("=== Mailer Application Started ===");
-            Log.Information("Command line arguments: {Args}", string.Join(" ", args));
+            Log.Debug("Command line arguments: {Args}", string.Join(" ", args));
 
             // Parse command-line arguments manually
             var parsedArgs = ParseArguments(args);
@@ -33,7 +33,7 @@ class Program
             // Check for setup command
             if (parsedArgs.ContainsKey("--setup"))
             {
-                Log.Information("Running configuration setup utility");
+                Log.Debug("Running configuration setup utility");
                 ConfigSetup.Run();
                 Log.Information("Setup utility completed");
                 return 0;
@@ -43,14 +43,14 @@ class Program
             if (parsedArgs.ContainsKey("--version") || parsedArgs.ContainsKey("-v"))
             {
                 ShowVersion();
-                Log.Information("Version information displayed");
+                Log.Debug("Version information displayed");
                 return 0;
             }
 
             if (parsedArgs.ContainsKey("--help") || parsedArgs.ContainsKey("-h"))
             {
                 ShowHelp();
-                Log.Information("Help displayed to user");
+                Log.Debug("Help displayed to user");
                 return 0;
             }
 
@@ -95,11 +95,11 @@ class Program
             var attachments = parsedArgs.ContainsKey("--attachments") ? parsedArgs["--attachments"] : null;
             var fromEmail = parsedArgs.ContainsKey("--from") ? parsedArgs["--from"][0] : null;
 
-            Log.Information("Email parameters - To: {To}, Subject: {Subject}, BodyIsFile: {BodyIsFile}, Attachments: {AttachmentCount}, From: {From}",
+            Log.Debug("Email parameters - To: {To}, Subject: {Subject}, BodyIsFile: {BodyIsFile}, Attachments: {AttachmentCount}, From: {From}",
                 string.Join(", ", to), subject, bodyIsFile, attachments?.Length ?? 0, fromEmail ?? "(using default)");
 
             // Load database configuration
-            Log.Information("Loading database configuration");
+            Log.Debug("Loading database configuration");
             var dbConfig = DatabaseConfig.Load();
             if (dbConfig == null || string.IsNullOrWhiteSpace(dbConfig.ServerIp) || 
                 string.IsNullOrWhiteSpace(dbConfig.DatabaseName) || 
@@ -140,18 +140,18 @@ class Program
             
             SecureConfigService.SetConnectionString(connectionString);
             SecureConfigService.SetTableName(dbConfig.TableName);
-            Log.Information("Database connection configured: Server={Server}, Database={Database}, Table={Table}", 
+            Log.Debug("Database connection configured: Server={Server}, Database={Database}, Table={Table}", 
                 dbConfig.ServerIp, dbConfig.DatabaseName, dbConfig.TableName);
-            Log.Information("Serilog database sink configured for table: MailerLogs");
+            Log.Debug("Serilog database sink configured for table: MailerLogs");
 
             // Load protected configuration from database
-            Log.Information("Loading protected configuration from database");
+            Log.Debug("Loading protected configuration from database");
             GraphConfig graphConfig;
             
             try
             {
                 graphConfig = SecureConfigService.LoadConfig();
-                Log.Information("Configuration loaded successfully. Sender: {SenderEmail}", graphConfig.SenderEmail);
+                Log.Debug("Configuration loaded successfully. Sender: {SenderEmail}", graphConfig.SenderEmail);
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Connection string not set"))
             {
@@ -188,7 +188,7 @@ class Program
             // Override sender email if --from parameter is provided
             if (!string.IsNullOrWhiteSpace(fromEmail))
             {
-                Log.Information("Overriding sender email from '{DefaultSender}' to '{OverrideSender}'", 
+                Log.Debug("Overriding sender email from '{DefaultSender}' to '{OverrideSender}'", 
                     graphConfig.SenderEmail, fromEmail);
                 graphConfig.SenderEmail = fromEmail;
             }

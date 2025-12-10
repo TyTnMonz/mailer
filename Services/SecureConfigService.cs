@@ -30,7 +30,7 @@ public class SecureConfigService
             throw new ArgumentException("Table name cannot be empty", nameof(tableName));
         
         _tableName = tableName;
-        _logger.Information("Configuration table name set to: {TableName}", _tableName);
+        _logger.Debug("Configuration table name set to: {TableName}", _tableName);
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ public class SecureConfigService
             using var command = new SqlCommand(createTableSql, connection);
             command.ExecuteNonQuery();
 
-            _logger.Information("Database table '{TableName}' initialized successfully", _tableName);
+            _logger.Debug("Database table '{TableName}' initialized successfully", _tableName);
         }
         catch (Exception ex)
         {
@@ -132,7 +132,7 @@ public class SecureConfigService
                 command.ExecuteNonQuery();
             }
 
-            _logger.Information("Configuration saved successfully to database (5 key-value pairs)");
+            _logger.Debug("Configuration saved successfully to database (5 key-value pairs)");
         }
         catch (Exception ex)
         {
@@ -190,7 +190,7 @@ public class SecureConfigService
                 Recipients = configData.ContainsKey("To") ? configData["To"] : string.Empty
             };
 
-            _logger.Information("Configuration loaded successfully from database for sender: {SenderEmail}", config.SenderEmail);
+            _logger.Debug("Configuration loaded successfully from database for sender: {SenderEmail}", config.SenderEmail);
 
             return config;
         }

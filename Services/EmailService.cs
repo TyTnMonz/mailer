@@ -98,7 +98,7 @@ public class EmailService
         int attempt = 0;
         Exception? lastException = null;
 
-        _logger.Information("Starting email send operation. Subject: {Subject}, IsBodyAFile: {IsBodyAFile}, MaxRetries: {MaxRetries}", 
+        _logger.Debug("Starting email send operation. Subject: {Subject}, IsBodyAFile: {IsBodyAFile}, MaxRetries: {MaxRetries}", 
             subject, isBodyAFile, maxRetries);
 
         while (attempt <= maxRetries)
@@ -169,7 +169,7 @@ public class EmailService
         bool isBodyAFile,
         IEnumerable<string>? attachmentPaths)
     {
-        _logger.Information("Starting email send operation. Subject: {Subject}, IsBodyAFile: {IsBodyAFile}", 
+        _logger.Debug("Starting email send operation. Subject: {Subject}, IsBodyAFile: {IsBodyAFile}", 
             subject, isBodyAFile);
 
         try
@@ -182,7 +182,7 @@ public class EmailService
                 throw new ArgumentException("At least one 'To' recipient is required.", nameof(to));
             }
 
-            _logger.Information("Recipients - To: {ToCount}, CC: {CcCount}, BCC: {BccCount}", 
+            _logger.Debug("Recipients - To: {ToCount}, CC: {CcCount}, BCC: {BccCount}", 
                 toList.Count, 
                 cc?.Count() ?? 0, 
                 bcc?.Count() ?? 0);
@@ -193,7 +193,7 @@ public class EmailService
             string htmlBody;
             if (isBodyAFile)
             {
-                _logger.Information("Loading HTML body from file: {FilePath}", htmlBodyOrPath);
+                _logger.Debug("Loading HTML body from file: {FilePath}", htmlBodyOrPath);
                 
                 if (!File.Exists(htmlBodyOrPath))
                 {
@@ -202,12 +202,12 @@ public class EmailService
                 }
 
                 htmlBody = await File.ReadAllTextAsync(htmlBodyOrPath);
-                _logger.Information("HTML body loaded successfully from file. Length: {Length} characters", htmlBody.Length);
+                _logger.Debug("HTML body loaded successfully from file. Length: {Length} characters", htmlBody.Length);
             }
             else
             {
                 htmlBody = htmlBodyOrPath;
-                _logger.Information("Using HTML body from string. Length: {Length} characters", htmlBody.Length);
+                _logger.Debug("Using HTML body from string. Length: {Length} characters", htmlBody.Length);
             }
 
             // Build the message
@@ -249,7 +249,7 @@ public class EmailService
             if (attachmentPaths != null && attachmentPaths.Any())
             {
                 var attachmentList = attachmentPaths.ToList();
-                _logger.Information("Processing {AttachmentCount} attachment(s)", attachmentList.Count);
+                _logger.Debug("Processing {AttachmentCount} attachment(s)", attachmentList.Count);
                 
                 message.Attachments = new List<Attachment>();
 
@@ -274,7 +274,7 @@ public class EmailService
                     };
 
                     message.Attachments.Add(attachment);
-                    _logger.Information("Attachment added: {FileName}, Size: {Size} bytes", fileName, fileBytes.Length);
+                    _logger.Debug("Attachment added: {FileName}, Size: {Size} bytes", fileName, fileBytes.Length);
                 }
             }
 
