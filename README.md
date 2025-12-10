@@ -106,16 +106,36 @@ This application uses **SQL Server** to store Microsoft Graph API credentials se
 Mailer.exe --setup
 ```
 
-You'll be prompted for:
+The setup wizard has 4 steps:
+
+**Step 1: Database Connection Setup**
 - **SQL Server IP/Hostname** - e.g., `localhost`, `192.168.1.100`
 - **Database Name** - e.g., `MailerDB`, `EmailConfig`
 - **Table Name** - e.g., `MailerConfig`, `GraphCredentials`
-- **Authentication Method** - Windows Authentication or SQL Server Authentication
+- **Authentication Method** - Windows Authentication (y/n) or SQL Server Authentication
+
+**Step 2: (Internal - Database Initialization)**
+
+**Step 3: Logging Configuration**
+- **Enable file logging?** (y/n, default: y)
+  - If yes: **File log level?** (D/I/W/E, default: I)
+- **Enable database full logs?** (y/n, default: y)
+  - If yes: **Database log level?** (D/I/W/E, default: D)
+- **Enable email history table?** (y/n, default: y)
+- **Secure db.config.json file?** (y/n, default: n)
+
+**Step 4: Microsoft Graph API Configuration**
 - **Azure Tenant ID** - Found in your App Registration → Overview
 - **Azure Client ID** - Found in your App Registration → Overview
 - **Azure Client Secret** - Created in App Registration → Certificates & secrets
 - **Sender Email Address** - A valid email in your Office 365 tenant
 - **Default Recipients** (optional) - Default email recipients
+
+> [!TIP]
+> **Quick Setup**: Use single-letter shortcuts for faster configuration:
+> - Yes/No: Just type `y` or `n`
+> - Log Levels: `D`=Debug, `I`=Information, `W`=Warning, `E`=Error
+> - Defaults: Just press Enter
 
 The utility will:
 - ✅ Test the database connection
@@ -334,11 +354,13 @@ The application uses **Serilog** for comprehensive logging with **fully configur
 ### Configuration
 
 During `--setup` (Step 3: Logging Configuration), you can:
-- Enable/disable file logging + choose level (Debug/Information/Warning/Error)
-- Enable/disable database logging + choose level (Debug/Information/Warning/Error)
+- Enable/disable file logging + choose level (D/I/W/E shortcuts)
+- Enable/disable database logging + choose level (D/I/W/E shortcuts)
 - Enable/disable email history table
 
 Your choices are saved in `db.config.json` and used for all future runs.
+
+See [docs/LOGGING_CONFIG.md](docs/LOGGING_CONFIG.md) for detailed configuration guide.
 
 ### What Gets Logged
 
