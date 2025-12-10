@@ -309,16 +309,20 @@ See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) for performance monitoring guide.
 mailer/
 ├── Models/
 │   ├── DatabaseConfig.cs      # Database connection configuration
+│   ├── EmailHistoryRecord.cs  # Email history data model
 │   └── GraphConfig.cs         # Microsoft Graph API configuration
 ├── Services/
 │   ├── EmailService.cs        # Email sending with retry logic
+│   ├── EmailHistoryService.cs # Email history database logging
 │   └── SecureConfigService.cs # SQL Server credential storage
 ├── docs/                      # Documentation
 │   ├── README.md              # Documentation index
 │   ├── DEPLOYMENT.md          # Deployment guide
 │   ├── DISTRIBUTION.md        # Self-contained distribution
 │   ├── FRAMEWORK_DEPENDENT.md # Framework-dependent version
-│   ├── EMAIL_LOGGING.md       # Logging with Serilog
+│   ├── EMAIL_LOGGING.md       # Serilog logging documentation
+│   ├── EMAIL_HISTORY.md       # EmailHistory table documentation
+│   ├── LOGGING_CONFIG.md      # Configurable logging guide
 │   ├── PERFORMANCE.md         # Retry logic & monitoring
 │   ├── SECURITY.md            # Security guide
 │   ├── implementation_plan.md # Implementation plan
